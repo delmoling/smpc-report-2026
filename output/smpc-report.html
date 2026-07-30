@@ -1,0 +1,664 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SMPC 2026 · Evanston</title>
+<style>
+  :root{
+    --ink:#f5f6f8; --sub:#c9cdd6;
+    --glass: rgba(18,20,26,.55);
+    --glass-border: rgba(255,255,255,.14);
+    --accent:#6ee7ff; --accent2:#a78bfa;
+    --yellow:#f5c542;
+  }
+  *{ box-sizing:border-box; }
+  html,body{ height:100%; margin:0; }
+  body{
+    background:#050608; color:var(--ink); overflow:hidden;
+    font-family:-apple-system,"Segoe UI",Roboto,sans-serif;
+  }
+
+  .stage{ position:fixed; inset:0; display:flex; align-items:center; justify-content:center; }
+  .frame{ position:relative; width:100%; height:100%; overflow:hidden; }
+  .ph-layer{
+    position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+    background: linear-gradient(135deg,#1b1032,#0a1a22 60%);
+    opacity:0; transition:opacity 1s ease; overflow:hidden;
+  }
+  .ph-layer.active{ opacity:1; }
+  .ph-layer .bgblur{
+    position:absolute; inset:-8%; width:116%; height:116%; object-fit:cover;
+    filter:blur(46px) brightness(.5) saturate(1.15);
+    transform:scale(1.1); transform-origin:center;
+  }
+  .ph-layer.active .bgblur{ animation:bgdrift 14s ease-in-out forwards; }
+  .ph-layer.active.no-zoom .bgblur{ animation:none; transform:scale(1.1); }
+  @keyframes bgdrift{
+    from{ transform:scale(1.1) translate(0,0); }
+    to{ transform:scale(1.18) translate(-1.5%,1%); }
+  }
+  .ph-layer .media{
+    position:relative; z-index:1; width:100%; height:100%; object-fit:contain;
+    transform-origin:center;
+  }
+  .ph-layer.active .media{ animation:kenburns 14s ease-in-out forwards; }
+  .ph-layer.active.no-zoom .media{ animation:none; transform:scale(1); }
+  @keyframes kenburns{
+    from{ transform:scale(.94) translate(0,0); }
+    to{ transform:scale(1) translate(-.6%,.4%); }
+  }
+  .ph-layer .cap{ font-size:.85rem; color:var(--sub); text-align:center; max-width:320px; opacity:.7; padding:0 1.5rem; }
+  .ph-layer .cap .icon{ font-size:2rem; display:block; margin-bottom:.6rem; opacity:.6; }
+  .ph-layer .badge{
+    position:absolute; top:1.3rem; left:1.3rem; font-size:.68rem; font-weight:700;
+    padding:.3rem .65rem; border-radius:999px; background:var(--glass); border:1px solid var(--glass-border);
+    backdrop-filter:blur(10px); display:flex; align-items:center; gap:.4rem; z-index:2;
+  }
+  .ph-layer .badge i{ width:6px; height:6px; border-radius:50%; background:var(--accent); flex:0 0 auto; }
+  .ph-layer .badge.joseph i{ background:var(--accent2); }
+
+  .vignette{
+    position:absolute; inset:0; pointer-events:none;
+    background:
+      linear-gradient(to top, rgba(0,0,0,.65) 0%, rgba(0,0,0,0) 30%),
+      linear-gradient(to bottom, rgba(0,0,0,.5) 0%, rgba(0,0,0,0) 22%);
+  }
+
+  .storybar{ position:fixed; top:.9rem; left:1.3rem; right:1.3rem; z-index:50; display:flex; gap:.25rem; }
+  .storybar .seg{ flex:1; height:3px; border-radius:3px; background:rgba(255,255,255,.2); overflow:hidden; cursor:pointer; }
+  .storybar .seg i{ display:block; height:100%; width:0%; background:#fff; }
+  .storybar .seg.done i{ width:100%; }
+  .storybar .seg.current i{ width:var(--p,0%); transition:width .1s linear; }
+  .storybar .seg.attended{ background:rgba(245,197,66,.28); }
+  .storybar .seg.day-start{ margin-left:.55rem; }
+
+  .menubtn{
+    position:fixed; top:1.5rem; right:1.3rem; z-index:60;
+    width:42px; height:42px; border-radius:50%; background:var(--glass); border:1px solid var(--glass-border);
+    backdrop-filter:blur(10px); color:#fff; display:flex; align-items:center; justify-content:center;
+    cursor:pointer; font-size:1.1rem;
+  }
+  .navpanel{
+    position:fixed; top:0; right:0; bottom:0; width:min(340px,84vw); z-index:70;
+    background:rgba(14,16,21,.85); backdrop-filter:blur(18px); border-left:1px solid var(--glass-border);
+    transform:translateX(100%); transition:transform .4s cubic-bezier(.4,0,.2,1);
+    padding:5rem 1.3rem 1.5rem; overflow-y:auto;
+  }
+  .navpanel.open{ transform:translateX(0); }
+  .navpanel h3{ font-size:.7rem; text-transform:uppercase; letter-spacing:.14em; color:var(--sub); margin:1.1rem 0 .5rem; }
+  .navpanel h3:first-child{ margin-top:0; }
+  .navitem{
+    display:flex; align-items:center; justify-content:space-between; gap:.6rem;
+    padding:.6rem .55rem; border-radius:10px; cursor:pointer; font-size:.85rem; transition:background .15s;
+  }
+  .navitem:hover{ background:rgba(255,255,255,.06); }
+  .navitem.current{ background:rgba(110,231,255,.1); color:var(--accent); }
+  .navitem .t{ color:var(--sub); font-size:.72rem; font-variant-numeric:tabular-nums; flex:0 0 auto; }
+  .navitem .lbl{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .navitem .dot{ width:6px; height:6px; border-radius:50%; background:var(--yellow); margin-right:.4rem; flex:0 0 auto; opacity:0; }
+  .navitem.attended .dot{ opacity:1; }
+  .navclose{
+    position:fixed; top:1.5rem; right:1.3rem; z-index:80; width:42px; height:42px; border-radius:50%;
+    background:var(--glass); border:1px solid var(--glass-border); backdrop-filter:blur(10px);
+    color:#fff; display:none; align-items:center; justify-content:center; cursor:pointer; font-size:1.1rem;
+  }
+  .navclose.show{ display:flex; }
+  .scrim{
+    position:fixed; inset:0; background:rgba(0,0,0,.3); z-index:65; opacity:0; pointer-events:none; transition:opacity .3s;
+  }
+  .scrim.show{ opacity:1; pointer-events:auto; }
+
+  .infobox{ position:fixed; left:1.3rem; bottom:1.3rem; z-index:50; max-width:min(440px,78vw); }
+  .infobox .day{
+    font-size:.68rem; font-weight:700; letter-spacing:.14em; text-transform:uppercase;
+    display:flex; align-items:center; gap:.5rem; margin-bottom:.3rem;
+  }
+  .infobox .day .lbl{
+    background:linear-gradient(120deg,var(--accent),var(--accent2)); -webkit-background-clip:text;
+    background-clip:text; color:transparent;
+  }
+  .typepill{
+    font-size:.6rem; font-weight:700; text-transform:uppercase; letter-spacing:.08em;
+    padding:.15rem .5rem; border-radius:999px; white-space:nowrap;
+  }
+  .typepill.attended{ background:rgba(245,197,66,.18); color:var(--yellow); border:1px solid rgba(245,197,66,.4); }
+  .typepill.event{ background:rgba(255,255,255,.08); color:var(--sub); border:1px solid var(--glass-border); }
+  .typepill.extra{ background:rgba(167,139,250,.18); color:var(--accent2); border:1px solid rgba(167,139,250,.4); }
+  .infobox h1{ margin:0 0 .25rem; font-size:clamp(1.25rem,3.6vw,1.8rem); font-weight:700; letter-spacing:-.01em; text-shadow:0 2px 20px rgba(0,0,0,.5); }
+  .infobox .meta{ font-size:.8rem; color:var(--sub); margin:0 0 .6rem; }
+  .talkbox{
+    display:none; align-items:center; gap:.5rem; font-size:.78rem; line-height:1.35; color:var(--ink);
+    background:var(--glass); border:1px solid var(--glass-border); backdrop-filter:blur(10px);
+    padding:.45rem .7rem; border-radius:10px; margin:0 0 .6rem; max-width:100%;
+  }
+  .talkbox.show{ display:inline-flex; }
+  .talkbox .ic{ opacity:.75; flex:0 0 auto; }
+  .talkbox.unknown{ font-style:italic; color:var(--sub); }
+  .infobox .progbtn{
+    font-size:.76rem; font-weight:600; color:#fff; background:var(--glass); border:1px solid var(--glass-border);
+    backdrop-filter:blur(10px); padding:.5rem .8rem; border-radius:10px; cursor:pointer;
+    display:inline-flex; align-items:center; gap:.4rem;
+  }
+  .progbtn svg{ width:12px; height:12px; transition:transform .25s; }
+  .progbtn.open svg{ transform:rotate(180deg); }
+  .progpanel{
+    max-height:0; overflow:hidden; transition:max-height .35s ease; font-size:.8rem; color:var(--sub);
+    line-height:1.6; margin-top:.55rem; background:var(--glass); border:1px solid var(--glass-border);
+    backdrop-filter:blur(14px); border-radius:12px;
+  }
+  .progpanel.open{ max-height:260px; padding:.75rem .9rem; overflow-y:auto; }
+  .progpanel b{ color:#fff; font-weight:600; }
+  .progpanel .note{ display:block; font-style:italic; margin-bottom:.5rem; }
+
+  .carouselnav{
+    position:fixed; bottom:1.3rem; left:50%; transform:translateX(-50%); z-index:50;
+    display:flex; align-items:center; gap:.9rem;
+  }
+  .carouselnav .arrow{
+    width:38px; height:38px; border-radius:50%; background:var(--glass); border:1px solid var(--glass-border);
+    backdrop-filter:blur(10px); color:#fff; cursor:pointer; display:flex; align-items:center; justify-content:center;
+  }
+  .thumbdots{ display:flex; gap:.4rem; flex-wrap:wrap; max-width:40vw; justify-content:center; }
+  .thumbdots i{ width:5px; height:5px; border-radius:50%; background:rgba(255,255,255,.35); transition:all .3s; cursor:pointer; }
+  .thumbdots i.active{ width:16px; border-radius:3px; background:#fff; }
+
+  .swipezone{ position:fixed; top:0; bottom:0; width:18%; z-index:20; cursor:pointer; }
+  .swipezone.left{ left:0; } .swipezone.right{ right:0; }
+
+  @media (max-width:640px){ .infobox{ max-width:90vw; } .thumbdots{ max-width:55vw; } }
+</style>
+</head>
+<body>
+
+<div class="scrim" id="scrim"></div>
+
+<div class="stage">
+  <div class="frame" id="frame"></div>
+  <div class="vignette"></div>
+</div>
+
+<div class="swipezone left" id="swLeft"></div>
+<div class="swipezone right" id="swRight"></div>
+
+<div class="storybar" id="storybar"></div>
+
+<button class="menubtn" id="menuBtn">☰</button>
+<button class="navclose" id="navClose">✕</button>
+<nav class="navpanel" id="navPanel"></nav>
+
+<div class="infobox">
+  <div class="day"><span class="lbl" id="ibDay"></span><span class="typepill" id="ibPill"></span></div>
+  <h1 id="ibTitle"></h1>
+  <p class="meta" id="ibMeta"></p>
+  <p class="talkbox" id="ibTalk"></p>
+  <button class="progbtn" id="progBtn">Ver programação
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+  </button>
+  <div class="progpanel" id="progPanel"></div>
+</div>
+
+<div class="carouselnav">
+  <button class="arrow" id="prevPhoto">‹</button>
+  <div class="thumbdots" id="thumbDots"></div>
+  <button class="arrow" id="nextPhoto">›</button>
+</div>
+
+<script>
+const IMG = f => 'images/' + f;
+
+const sessions = [
+  // ---------------- PRÉ-CONFERÊNCIA ----------------
+  {
+    day:'Pré-conf. · Terça, 21/07', title:'Tarde livre pela cidade', meta:'12:31–14:34',
+    type:'extra', attended:false,
+    info:'Passeio livre pela cidade antes do Trainee Social.',
+    photos:[
+      {f:'20260721_173117869_iOS.jpg', who:'Guilherme', t:'12:31'},
+      {f:'20260721_173247669_iOS.jpg', who:'Guilherme', t:'12:32'},
+      {f:'20260721_185958480_iOS.jpg', who:'Guilherme', t:'13:59'},
+      {f:'20260721_193429111_iOS.jpg', who:'Guilherme', t:'14:34'},
+    ]
+  },
+  {
+    day:'Pré-conf. · Terça, 21/07', title:'Pre-Conference Trainee Social', meta:'15:00–16:30 · Lake Room (2-180), Norris University Center',
+    type:'extra', attended:false,
+    info:'Evento social de boas-vindas para trainees, no Norris University Center.',
+    photos:[
+      {f:'20260721_211843147_iOS.jpg', who:'Guilherme', t:'16:18'},
+      {f:'20260721_212536935_iOS.jpg', who:'Guilherme', t:'16:25'},
+    ]
+  },
+  {
+    day:'Pré-conf. · Terça, 21/07', title:'Trainee Excursion', meta:'18:30 · Millennium Park',
+    type:'extra', attended:false,
+    info:'Excursão noturna ao Millennium Park.',
+    photos:[]
+  },
+
+  // ---------------- DIA 1 ----------------
+  {
+    day:'Dia 1 · Quarta, 22/07', title:'Chegada e Coffee & Pastries', meta:'08:15–09:00 · Jean Gimbel Lane',
+    type:'extra', attended:false,
+    info:'Café da manhã de chegada, antes da abertura oficial.',
+    photos:[
+      {f:'20260722_132103126_iOS.jpg', who:'Guilherme', t:'08:21'},
+      {f:'20260722_132248470_iOS.jpg', who:'Guilherme', t:'08:22'},
+      {f:'20260722_132307739_iOS.jpg', who:'Guilherme', t:'08:23'},
+      {f:'20260722_140132565_iOS.jpg', who:'Guilherme', t:'09:01'},
+    ]
+  },
+  {
+    day:'Dia 1 · Quarta, 22/07', title:'Welcome & Opening', meta:'09:00–09:30 · Galvin Recital Hall',
+    type:'event', attended:false,
+    info:'Abertura oficial da conferência.',
+    photos:[]
+  },
+  {
+    day:'Dia 1 · Quarta, 22/07', title:'[T29] Cross-cultural perception', meta:'09:45–10:45 · Galvin Recital Hall',
+    type:'attended', attended:true,
+    info:'<b>Chair:</b> Van Hedger<br><b>Hsu Speck</b> — Conceptual Boundaries of Music<br><b>Sears</b> — Where is this Music From?<br><b>McPherson-McNato</b> — Aversion to screechy sounds...',
+    photos:[
+      {f:'20260722_150629138_iOS.jpg', who:'Guilherme', t:'10:06', talk:'Sears — Where is this Music From?'},
+    ]
+  },
+  {
+    day:'Dia 1 · Quarta, 22/07', title:'[T6] Transfer effects of music', meta:'10:45–11:45 · Ryan Opera Theater',
+    type:'attended', attended:true,
+    info:'<b>Chair:</b> Nayak<br><b>Villanueva</b> — Response Time Variability...<br><b>Shalev</b> — Clinical Use of Music...<br><b>Bugos</b> — Randomized Trial of Intense Music Training...',
+    photos:[
+      {f:'20260722_161503229_iOS.jpg', who:'Guilherme', t:'11:15', talk:'Shalev — Music in Autism Interventions'},
+      {f:'20260722_161744633_iOS.jpg', who:'Guilherme', t:'11:17', talk:'Shalev — Music in Autism Interventions'},
+      {f:'20260722_162630189_iOS.jpg', who:'Guilherme', t:'11:26', talk:'Bugos — Music Training & Executive Functions'},
+      {f:'joseph_20260722_110020.jpg', who:'Joseph', t:'11:00', talk:'Villanueva — Response Time Variability in Musicians'},
+      {f:'joseph_20260722_110056.jpg', who:'Joseph', t:'11:00', talk:'Villanueva — Response Time Variability in Musicians'},
+      {f:'joseph_20260722_111126.jpg', who:'Joseph', t:'11:11', talk:'Shalev — Music in Autism Interventions'},
+      {f:'joseph_20260722_111506.jpg', who:'Joseph', t:'11:15', talk:'Shalev — Music in Autism Interventions'},
+      {f:'joseph_20260722_111753.jpg', who:'Joseph', t:'11:17', talk:'Shalev — Music in Autism Interventions'},
+      {f:'joseph_20260722_112615.jpg', who:'Joseph', t:'11:26', talk:'Bugos — Music Training & Executive Functions'},
+      {f:'joseph_20260722_112641.jpg', who:'Joseph', t:'11:26', talk:'Bugos — Music Training & Executive Functions'},
+      {f:'joseph_20260722_112857.jpg', who:'Joseph', t:'11:28', talk:'Bugos — Music Training & Executive Functions'},
+      {f:'joseph_20260722_112916.jpg', who:'Joseph', t:'11:29', talk:'Bugos — Music Training & Executive Functions'},
+      {f:'joseph_20260722_113011.jpg', who:'Joseph', t:'11:30', talk:'Bugos — Music Training & Executive Functions'},
+      {f:'joseph_20260722_113041.jpg', who:'Joseph', t:'11:30', talk:'Bugos — Music Training & Executive Functions'},
+      {f:'joseph_20260722_113157.jpg', who:'Joseph', t:'11:31', talk:'Bugos — Music Training & Executive Functions'},
+      {f:'joseph_20260722_113407.jpg', who:'Joseph', t:'11:34', talk:'Bugos — Music Training & Executive Functions'},
+      {f:'joseph_20260722_113409.jpg', who:'Joseph', t:'11:34', talk:'Bugos — Music Training & Executive Functions'},
+      {f:'joseph_20260722_113515.jpg', who:'Joseph', t:'11:35', talk:'Bugos — Music Training & Executive Functions'},
+      {f:'joseph_20260722_113519.jpg', who:'Joseph', t:'11:35', talk:'Bugos — Music Training & Executive Functions'},
+      {f:'joseph_20260722_113646.jpg', who:'Joseph', t:'11:36', talk:'Bugos — Music Training & Executive Functions'},
+      {f:'joseph_20260722_113718.jpg', who:'Joseph', t:'11:37', talk:'Bugos — Music Training & Executive Functions'},
+      {f:'joseph_20260722_113749.jpg', who:'Joseph', t:'11:37', talk:'Bugos — Music Training & Executive Functions'},
+      {f:'joseph_20260722_113809.jpg', who:'Joseph', t:'11:38', talk:'Bugos — Music Training & Executive Functions'},
+    ]
+  },
+  {
+    day:'Dia 1 · Quarta, 22/07', title:'Lunch Break / Early Career Panel', meta:'11:45–13:15 · Ryan Opera Theater',
+    type:'event', attended:false,
+    info:'Painel de carreira durante o almoço.',
+    photos:[
+      {f:'20260722_174029749_iOS.jpg', who:'Guilherme', t:'12:40'},
+    ]
+  },
+  {
+    day:'Dia 1 · Quarta, 22/07', title:'Special Session: Mini-Concert & Mixed Reality Workshop', meta:'13:15–14:15 · McClintock Choral/Recital Hall',
+    type:'attended', attended:true,
+    info:'<b>Rudenko, Fu, Haahr</b> — demonstração especial de mini-concerto e workshop de realidade mista.',
+    photos:[
+      {f:'20260722_182057620_iOS.jpg', who:'Guilherme', t:'13:20', talk:'Rudenko, Fu & Haahr — Mini-Concert & Mixed Reality'},
+      {f:'joseph_20260722_131846.jpg', who:'Joseph', t:'13:18', talk:'Rudenko, Fu & Haahr — Mini-Concert & Mixed Reality'},
+      {f:'20260722_182439545_iOS.jpg', who:'Guilherme', t:'13:24', talk:'Rudenko, Fu & Haahr — Mini-Concert & Mixed Reality'},
+      {f:'20260722_182557278_iOS.jpg', who:'Guilherme', t:'13:25', talk:'Rudenko, Fu & Haahr — Mini-Concert & Mixed Reality'},
+      {f:'joseph_20260722_133135.jpg', who:'Joseph', t:'13:31', talk:'Rudenko, Fu & Haahr — Mini-Concert & Mixed Reality'},
+      {f:'joseph_20260722_133341.mp4', who:'Joseph', t:'13:33', video:true, talk:'Rudenko, Fu & Haahr — Mini-Concert & Mixed Reality'},
+    ]
+  },
+  {
+    day:'Dia 1 · Quarta, 22/07', title:'Intervalo livre — Grosse Point Lighthouse', meta:'14:15–16:00 · Grosse Point Lighthouse',
+    type:'extra', attended:false,
+    info:'Janela livre entre sessões aproveitada para conhecer o farol histórico de Evanston.',
+    photos:[
+      {f:'20260722_201007237_iOS.jpg', who:'Guilherme', t:'15:10'},
+      {f:'20260722_201137484_iOS.jpg', who:'Guilherme', t:'15:11'},
+    ]
+  },
+  {
+    day:'Dia 1 · Quarta, 22/07', title:'Navegando entre duas sessões', meta:'16:00–17:00 · Regenstein / McClintock',
+    type:'attended', attended:true,
+    info:'<b>Opção A — [T15] Harmony, tonality & cultural experience</b><br>Regenstein Master Class Room · Ashley — pupilometria e harmonia/tonalidade.<br><br><b>Opção B — [T40] Algorithmic approaches to music research</b><br>McClintock Choral/Recital Hall · Chu — índice de streaming; McNamara — diferenças individuais.',
+    photos:[
+      {f:'20260722_210134022_iOS.jpg', who:'Guilherme', t:'16:01', talk:'Ashley — Pupillometry & 18th-Century Music (T15)'},
+      {f:'20260722_211336057_iOS.jpg', who:'Guilherme', t:'16:13', talk:'Ashley — Pupillometry & 18th-Century Music (T15)'},
+      {f:'20260722_211902735_iOS.jpg', who:'Guilherme', t:'16:19', talk:'Chu — Streamed Listening Index of Musical Experience (T40)'},
+      {f:'20260722_212416501_iOS.jpg', who:'Guilherme', t:'16:24', talk:'Chu — Streamed Listening Index of Musical Experience (T40)'},
+      {f:'20260722_212525426_iOS.jpg', who:'Guilherme', t:'16:25', talk:'Chu — Streamed Listening Index of Musical Experience (T40)'},
+      {f:'20260722_212748883_iOS.jpg', who:'Guilherme', t:'16:27', talk:'Chu — Streamed Listening Index of Musical Experience (T40)'},
+      {f:'joseph_20260722_160341.jpg', who:'Joseph', t:'16:03', talk:'Ashley — Pupillometry & 18th-Century Music (T15)'},
+      {f:'joseph_20260722_160422.jpg', who:'Joseph', t:'16:04', talk:'Ashley — Pupillometry & 18th-Century Music (T15)'},
+      {f:'joseph_20260722_161338.jpg', who:'Joseph', t:'16:13', talk:'Ashley — Pupillometry & 18th-Century Music (T15)'},
+      {f:'joseph_20260722_161545.jpg', who:'Joseph', t:'16:15', talk:'Ashley — Pupillometry & 18th-Century Music (T15)'},
+    ]
+  },
+  {
+    day:'Dia 1 · Quarta, 22/07', title:'Navegando entre duas sessões', meta:'17:00–18:00 · Galvin / Regenstein',
+    type:'attended', attended:true,
+    info:'<b>Opção A — [T3] Music and movement</b><br>Galvin Recital Hall · Christianson (Student Research Awardee) — imagética cinestésica evocada pela música.<br><br><b>Opção B — [T33] Aging; hearing health</b><br>Regenstein Master Class Room · Nayak — ligações perceptuais, cognitivas e genéticas.',
+    photos:[
+      {f:'20260722_220148581_iOS.jpg', who:'Guilherme', t:'17:01', talk:'Christianson — Music-Evoked Kinesthetic Imagery Scale (T3)'},
+      {f:'20260722_220546309_iOS.jpg', who:'Guilherme', t:'17:05', talk:'Christianson — Music-Evoked Kinesthetic Imagery Scale (T3)'},
+      {f:'20260722_221018891_iOS.jpg', who:'Guilherme', t:'17:10', talk:'Christianson — Music-Evoked Kinesthetic Imagery Scale (T3)'},
+      {f:'20260722_221117550_iOS.jpg', who:'Guilherme', t:'17:11', talk:'Christianson — Music-Evoked Kinesthetic Imagery Scale (T3)'},
+      {f:'20260722_221318897_iOS.jpg', who:'Guilherme', t:'17:13', talk:'Christianson — Music-Evoked Kinesthetic Imagery Scale (T3)'},
+      {f:'20260722_221408783_iOS.jpg', who:'Guilherme', t:'17:14', talk:'Christianson — Music-Evoked Kinesthetic Imagery Scale (T3)'},
+      {f:'20260722_221620484_iOS.jpg', who:'Guilherme', t:'17:16', talk:'Christianson — Music-Evoked Kinesthetic Imagery Scale (T3)'},
+      {f:'20260722_222324657_iOS.jpg', who:'Guilherme', t:'17:23', talk:'Nayak — Musicality & Hearing Health, Genetic Links (T33)'},
+      {f:'20260722_223205761_iOS.jpg', who:'Guilherme', t:'17:32', nozoom:true, talk:'Nayak — Musicality & Hearing Health, Genetic Links (T33)'},
+      {f:'20260722_223427787_iOS.jpg', who:'Guilherme', t:'17:34', talk:'Nayak — Musicality & Hearing Health, Genetic Links (T33)'},
+      {f:'20260722_223748383_iOS.jpg', who:'Guilherme', t:'17:37', talk:'Nayak — Musicality & Hearing Health, Genetic Links (T33)'},
+      {f:'joseph_20260722_170120.jpg', who:'Joseph', t:'17:01', talk:'Christianson — Music-Evoked Kinesthetic Imagery Scale (T3)'},
+      {f:'joseph_20260722_170315.jpg', who:'Joseph', t:'17:03', talk:'Christianson — Music-Evoked Kinesthetic Imagery Scale (T3)'},
+      {f:'joseph_20260722_170400.jpg', who:'Joseph', t:'17:04', talk:'Christianson — Music-Evoked Kinesthetic Imagery Scale (T3)'},
+      {f:'joseph_20260722_170522.jpg', who:'Joseph', t:'17:05', talk:'Christianson — Music-Evoked Kinesthetic Imagery Scale (T3)'},
+      {f:'joseph_20260722_170815.jpg', who:'Joseph', t:'17:08', talk:'Christianson — Music-Evoked Kinesthetic Imagery Scale (T3)'},
+      {f:'joseph_20260722_171010.jpg', who:'Joseph', t:'17:10', talk:'Christianson — Music-Evoked Kinesthetic Imagery Scale (T3)'},
+      {f:'joseph_20260722_171016.jpg', who:'Joseph', t:'17:10', talk:'Christianson — Music-Evoked Kinesthetic Imagery Scale (T3)'},
+      {f:'joseph_20260722_171109.jpg', who:'Joseph', t:'17:11', talk:'Christianson — Music-Evoked Kinesthetic Imagery Scale (T3)'},
+      {f:'joseph_20260722_171618.jpg', who:'Joseph', t:'17:16', talk:'Christianson — Music-Evoked Kinesthetic Imagery Scale (T3)'},
+      {f:'joseph_20260722_172159.jpg', who:'Joseph', t:'17:21', talk:'Han — Not Quite Dance? Dance-Like State Scores (T3)'},
+    ]
+  },
+  {
+    day:'Dia 1 · Quarta, 22/07', title:'Opening Reception', meta:'18:00–20:00 · Kahn Plaza',
+    type:'attended', attended:true,
+    info:'Recepção de abertura no Kahn Plaza.',
+    photos:[]
+  },
+
+  // ---------------- DIA 2 ----------------
+  {
+    day:'Dia 2 · Quinta, 23/07', title:'Coffee & Pastries + [T39] Music, cognitive function, and wellbeing', meta:'08:15–10:00',
+    type:'attended', attended:true,
+    info:'<b>Herschel</b> — RCT comparing music and audiobooks...<br><b>Douglass</b> — Functional Connectivity...<br><b>Rosen</b> — Songs of the Self...',
+    photos:[]
+  },
+  {
+    day:'Dia 2 · Quinta, 23/07', title:'[T7] Neural encoding of hierarchical structure', meta:'10:30–11:30 · Galvin Recital Hall',
+    type:'attended', attended:true,
+    info:'<b>Pinho</b> — Cortico–striatal–cerebellar organization...<br><b>Williams</b> — Hierarchical neural integration...<br><b>Asthagiri</b> (Student Research Awardee) — Deep generative models...',
+    photos:[
+      {f:'20260723_160605898_iOS.jpg', who:'Guilherme', t:'11:06', talk:'Williams — Hierarchical Neural Integration of Musical Structure'},
+    ]
+  },
+  {
+    day:'Dia 2 · Quinta, 23/07', title:'Navegando entre duas sessões', meta:'13:15–14:15 · Regenstein / McClintock',
+    type:'attended', attended:true,
+    info:'<b>Opção A — [T16] Music-language interface</b><br>Regenstein Master Class Room · Liu — associações intergeracionais entre música e linguagem.<br><br><b>Opção B — [T5] Music and emotion</b><br>McClintock Choral/Recital Hall · Lecamwasam — percepções sobre música gerada por IA.',
+    photos:[
+      {f:'20260723_184937682_iOS.jpg', who:'Guilherme', t:'13:49', talk:'Liu — Parent Musicality & Children\'s Phonological Awareness (T16)'},
+      {f:'joseph_20260723_131720.jpg', who:'Joseph', t:'13:17', talk:'Lecamwasam — Listener Perceptions of AI vs Human Music (T5)'},
+      {f:'joseph_20260723_131839.jpg', who:'Joseph', t:'13:18', talk:'Lecamwasam — Listener Perceptions of AI vs Human Music (T5)'},
+      {f:'joseph_20260723_131955.jpg', who:'Joseph', t:'13:19', talk:'Lecamwasam — Listener Perceptions of AI vs Human Music (T5)'},
+      {f:'joseph_20260723_132008.jpg', who:'Joseph', t:'13:20', talk:'Lecamwasam — Listener Perceptions of AI vs Human Music (T5)'},
+      {f:'joseph_20260723_132349.jpg', who:'Joseph', t:'13:23', talk:'Lecamwasam — Listener Perceptions of AI vs Human Music (T5)'},
+      {f:'joseph_20260723_132949.jpg', who:'Joseph', t:'13:29', talk:'Lecamwasam — Listener Perceptions of AI vs Human Music (T5)'},
+      {f:'joseph_20260723_135843.jpg', who:'Joseph', t:'13:58', talk:'Schutz — Interpretable-Cue Models for Musical Emotion (T5)'},
+    ]
+  },
+  {
+    day:'Dia 2 · Quinta, 23/07', title:'Poster Session & Coffee', meta:'14:15–15:45 · Louis Room',
+    type:'attended', attended:true,
+    info:'<span class="note">Guilherme não fotografou esta sessão; os registros são de Joseph.</span>Sessão de pôsteres livre, sem talks individuais na grade.',
+    photos:[
+      {f:'joseph_20260723_145105.jpg', who:'Joseph', t:'14:51'},
+      {f:'joseph_20260723_145203.jpg', who:'Joseph', t:'14:52'},
+      {f:'joseph_20260723_145404.jpg', who:'Joseph', t:'14:54'},
+      {f:'joseph_20260723_145741.jpg', who:'Joseph', t:'14:57'},
+      {f:'joseph_20260723_145837.jpg', who:'Joseph', t:'14:58'},
+      {f:'joseph_20260723_150119.jpg', who:'Joseph', t:'15:01'},
+      {f:'joseph_20260723_150440.jpg', who:'Joseph', t:'15:04'},
+      {f:'joseph_20260723_150508.jpg', who:'Joseph', t:'15:05'},
+      {f:'joseph_20260723_150756.jpg', who:'Joseph', t:'15:07'},
+      {f:'joseph_20260723_150838.jpg', who:'Joseph', t:'15:08'},
+      {f:'joseph_20260723_151033.jpg', who:'Joseph', t:'15:10'},
+      {f:'joseph_20260723_151643.jpg', who:'Joseph', t:'15:16'},
+      {f:'joseph_20260723_152814.jpg', who:'Joseph', t:'15:28'},
+      {f:'joseph_20260723_152903.jpg', who:'Joseph', t:'15:29'},
+    ]
+  },
+  {
+    day:'Dia 2 · Quinta, 23/07', title:'Business Meeting / Awards', meta:'15:45–17:00 · Galvin Recital Hall',
+    type:'event', attended:false,
+    info:'Reunião de negócios e entrega de prêmios da SMPC.',
+    photos:[
+      {f:'20260723_210555077_iOS.jpg', who:'Guilherme', t:'16:05'},
+    ]
+  },
+  {
+    day:'Dia 2 · Quinta, 23/07', title:'Keynote Address — Miriam Lense', meta:'17:00–18:00 · Galvin Recital Hall',
+    type:'event', attended:false,
+    info:'Palestra magna de Miriam Lense.',
+    photos:[
+      {f:'20260723_225718450_iOS.jpg', who:'Guilherme', t:'17:57'},
+      {f:'joseph_20260723_170317.jpg', who:'Joseph', t:'17:03'},
+      {f:'joseph_20260723_171539.jpg', who:'Joseph', t:'17:15'},
+      {f:'joseph_20260723_172001.jpg', who:'Joseph', t:'17:20'},
+    ]
+  },
+  {
+    day:'Dia 2 · Quinta, 23/07', title:'Science! The Musical', meta:'20:00–21:30 · McClintock Choral/Recital Hall',
+    type:'extra', attended:false,
+    info:'Encerramento leve do dia, apresentação musical sobre ciência.',
+    photos:[
+      {f:'20260724_000058662_iOS.jpg', who:'Guilherme', t:'19:00'},
+    ]
+  },
+
+  // ---------------- DIA 3 ----------------
+  {
+    day:'Dia 3 · Sexta, 24/07', title:'Poster Session & Coffee', meta:'09:00–10:30 · Louis Room',
+    type:'attended', attended:true,
+    info:'Sessão de pôsteres livre, sem talks individuais na grade.',
+    photos:[
+      {f:'20260724_151556958_iOS.jpg', who:'Guilherme', t:'10:15'},
+      {f:'20260724_152245562_iOS.jpg', who:'Guilherme', t:'10:22'},
+      {f:'20260724_152410170_iOS.jpg', who:'Guilherme', t:'10:24'},
+      {f:'joseph_20260724_093856.jpg', who:'Joseph', t:'09:38'},
+      {f:'joseph_20260724_094725.jpg', who:'Joseph', t:'09:47'},
+      {f:'joseph_20260724_095452.jpg', who:'Joseph', t:'09:54'},
+      {f:'joseph_20260724_100526.jpg', who:'Joseph', t:'10:05'},
+      {f:'joseph_20260724_102855.jpg', who:'Joseph', t:'10:28'},
+    ]
+  },
+  {
+    day:'Dia 3 · Sexta, 24/07', title:'Panel Discussion: Navigating Interdisciplinarity', meta:'10:45–11:45 · Galvin Recital Hall',
+    type:'attended', attended:true,
+    info:'<b>Margulis, Habibi, Lense, Loui</b> — painel sobre navegar pesquisa interdisciplinar.',
+    photos:[]
+  },
+  {
+    day:'Dia 3 · Sexta, 24/07', title:'Navegando entre duas sessões', meta:'13:15–14:15 · McClintock / Regenstein',
+    type:'attended', attended:true,
+    info:'<b>Opção A — [T19] Emotional dynamics across groups & development</b><br>McClintock Choral/Recital Hall · Kathios — rede de modo padrão em adolescentes; Wilson — emoção musical em idosos.<br><br><b>Opção B — [T25] Groups & social musical experiences</b><br>Regenstein Master Class Room · Wood — canto em grupo naturalístico.',
+    photos:[
+      {f:'20260724_183110513_iOS.jpg', who:'Guilherme', t:'13:31', talk:'Kathios — Default Mode Network in Adolescents (T19)'},
+      {f:'20260724_183955400_iOS.jpg', who:'Guilherme', t:'13:39', talk:'Sessão sobre musicalidade e saúde auditiva (Vanderbilt) — não consta na grade oficial deste horário'},
+      {f:'20260724_184509239_iOS.jpg', who:'Guilherme', t:'13:45', talk:'Sessão sobre musicalidade e saúde auditiva (Vanderbilt) — não consta na grade oficial deste horário'},
+      {f:'20260724_184651074_iOS.jpg', who:'Guilherme', t:'13:46', talk:'Sessão sobre musicalidade e saúde auditiva (Vanderbilt) — não consta na grade oficial deste horário'},
+      {f:'20260724_184859554_iOS.jpg', who:'Guilherme', t:'13:48', talk:'Sessão sobre musicalidade e saúde auditiva (Vanderbilt) — não consta na grade oficial deste horário'},
+    ]
+  },
+  {
+    day:'Dia 3 · Sexta, 24/07', title:'[T17] Music and emotion', meta:'14:15–15:15 · McClintock Choral/Recital Hall',
+    type:'attended', attended:true,
+    info:'<b>Agrawal</b> — Feeling Moved Mediates the Enjoyment...<br><b>Lopez</b> — Individual differences in music reward sensitivity...',
+    photos:[
+      {f:'20260724_200416975_iOS.jpg', who:'Guilherme', t:'15:04', talk:'Mehdizadeh — Forms of Music Appreciation'},
+      {f:'20260724_200917087_iOS.jpg', who:'Guilherme', t:'15:09', talk:'Mehdizadeh — Forms of Music Appreciation'},
+      {f:'20260724_201112415_iOS.jpg', who:'Guilherme', t:'15:11', talk:'Mehdizadeh — Forms of Music Appreciation'},
+      {f:'20260724_201552964_iOS.jpg', who:'Guilherme', t:'15:15', talk:'Mehdizadeh — Forms of Music Appreciation'},
+    ]
+  },
+  {
+    day:'Dia 3 · Sexta, 24/07', title:'[T28] Audiovisual integration', meta:'15:45–16:45 · Galvin Recital Hall',
+    type:'attended', attended:true,
+    info:'<b>Slevc</b> — What the eyes hear...<br><b>Acosta</b> — Jump Scares & the Startle Reflex. Última sessão da conferência.',
+    photos:[
+      {f:'20260724_205113330_iOS.jpg', who:'Guilherme', t:'15:51', talk:'Slevc — What the Eyes Hear: Timbral Brightness'},
+      {f:'20260724_205623441_iOS.jpg', who:'Guilherme', t:'15:56', talk:'Slevc — What the Eyes Hear: Timbral Brightness'},
+    ]
+  },
+];
+
+const TYPE_LABEL = { attended:'assistida', event:'evento', extra:'extra' };
+
+let curSession = 0, curPhoto = 0;
+const frame = document.getElementById('frame');
+const storybar = document.getElementById('storybar');
+const thumbDots = document.getElementById('thumbDots');
+const navPanel = document.getElementById('navPanel');
+
+function totalSlides(s){ return Math.max(s.photos.length, 1); }
+
+// storybar segments
+sessions.forEach((s,i)=>{
+  const seg = document.createElement('div');
+  const dayChanged = i>0 && s.day !== sessions[i-1].day;
+  seg.className = 'seg' + (s.attended ? ' attended' : '') + (dayChanged ? ' day-start' : '');
+  seg.dataset.i = i;
+  seg.innerHTML = '<i></i>';
+  seg.addEventListener('click', ()=> goTo(i));
+  storybar.appendChild(seg);
+});
+const segs = [...storybar.children];
+
+// nav panel grouped by day
+(function buildNav(){
+  let lastDay = null;
+  sessions.forEach((s,i)=>{
+    if (s.day !== lastDay){
+      const h3 = document.createElement('h3');
+      h3.textContent = s.day;
+      navPanel.appendChild(h3);
+      lastDay = s.day;
+    }
+    const item = document.createElement('div');
+    item.className = 'navitem' + (s.attended ? ' attended' : '');
+    item.dataset.goto = i;
+    const time = (s.meta.match(/^\d{2}:\d{2}/) || [''])[0];
+    item.innerHTML = `<span class="lbl"><span class="dot"></span>${s.title}</span><span class="t">${time}</span>`;
+    item.addEventListener('click', ()=> goTo(i));
+    navPanel.appendChild(item);
+  });
+})();
+const navItems = [...navPanel.querySelectorAll('.navitem')];
+
+function render(){
+  const s = sessions[curSession];
+  const total = totalSlides(s);
+  const p = s.photos[curPhoto];
+
+  document.getElementById('ibDay').textContent = s.day;
+  const pill = document.getElementById('ibPill');
+  pill.textContent = TYPE_LABEL[s.type] || '';
+  pill.className = 'typepill ' + s.type;
+  document.getElementById('ibTitle').textContent = s.title;
+  document.getElementById('ibMeta').textContent = s.meta;
+  document.getElementById('progPanel').innerHTML = s.info || '';
+
+  const talkEl = document.getElementById('ibTalk');
+  if (p && p.talk){
+    const isUnknown = !p.talk.includes('—');
+    talkEl.classList.toggle('show', true);
+    talkEl.classList.toggle('unknown', isUnknown);
+    talkEl.innerHTML = `<span class="ic">${isUnknown ? '❔' : '🎤'}</span>${p.talk}`;
+  } else {
+    talkEl.classList.remove('show');
+  }
+
+  frame.innerHTML = '';
+  const layer = document.createElement('div');
+  layer.className = 'ph-layer active' + (p ? '' : ' empty') + (p && p.nozoom ? ' no-zoom' : '');
+
+  if (p){
+    const altText = `${s.title} — foto de ${p.who}, ${s.day} às ${p.t}`;
+    const bgTag = p.video
+      ? `<video class="bgblur" src="${IMG(p.f)}" autoplay muted loop playsinline aria-hidden="true"></video>`
+      : `<img class="bgblur" src="${IMG(p.f)}" alt="" aria-hidden="true">`;
+    const media = p.video
+      ? `<video class="media" src="${IMG(p.f)}" autoplay muted loop playsinline controls></video>`
+      : `<img class="media" src="${IMG(p.f)}" alt="${altText}">`;
+    layer.innerHTML = `
+      ${bgTag}
+      ${media}
+      <span class="badge ${p.who==='Joseph'?'joseph':''}"><i></i>${p.who} · ${p.t}${p.video?' · vídeo':''}</span>
+    `;
+  } else {
+    layer.innerHTML = `<div class="cap"><span class="icon">🖼️</span>Sem fotos registradas para esta sessão.</div>`;
+  }
+  frame.appendChild(layer);
+
+  thumbDots.innerHTML = '';
+  for (let i=0; i<total; i++){
+    const d = document.createElement('i');
+    if (i===curPhoto) d.classList.add('active');
+    d.addEventListener('click', ()=>{ curPhoto=i; render(); });
+    thumbDots.appendChild(d);
+  }
+
+  segs.forEach((seg,i)=>{
+    seg.classList.toggle('done', i<curSession);
+    seg.classList.toggle('current', i===curSession);
+    seg.style.setProperty('--p', i===curSession ? ((curPhoto+1)/total*100)+'%' : (i<curSession?'100%':'0%'));
+  });
+
+  navItems.forEach(el=>{
+    el.classList.toggle('current', +el.dataset.goto===curSession);
+  });
+}
+
+function nextPhoto(){
+  const s = sessions[curSession];
+  const total = totalSlides(s);
+  if (curPhoto < total-1){ curPhoto++; }
+  else { nextSession(); return; }
+  render();
+}
+function prevPhoto(){
+  if (curPhoto>0){ curPhoto--; render(); }
+  else if (curSession>0){ curSession--; curPhoto = totalSlides(sessions[curSession])-1; render(); }
+}
+function nextSession(){
+  if (curSession < sessions.length-1){ curSession++; curPhoto=0; render(); }
+}
+function goTo(i){ curSession=i; curPhoto=0; render(); closeNav(); }
+
+document.getElementById('nextPhoto').addEventListener('click', nextPhoto);
+document.getElementById('prevPhoto').addEventListener('click', prevPhoto);
+document.getElementById('swRight').addEventListener('click', nextPhoto);
+document.getElementById('swLeft').addEventListener('click', prevPhoto);
+
+document.addEventListener('keydown', e=>{
+  if (e.key==='ArrowRight') nextPhoto();
+  if (e.key==='ArrowLeft') prevPhoto();
+  if (e.key==='Escape') closeNav();
+});
+
+const progBtn = document.getElementById('progBtn');
+progBtn.addEventListener('click', ()=>{
+  progBtn.classList.toggle('open');
+  document.getElementById('progPanel').classList.toggle('open');
+});
+
+const menuBtn = document.getElementById('menuBtn');
+const navClose = document.getElementById('navClose');
+const scrim = document.getElementById('scrim');
+function openNav(){ navPanel.classList.add('open'); scrim.classList.add('show'); menuBtn.style.display='none'; navClose.classList.add('show'); }
+function closeNav(){ navPanel.classList.remove('open'); scrim.classList.remove('show'); menuBtn.style.display='flex'; navClose.classList.remove('show'); }
+menuBtn.addEventListener('click', openNav);
+navClose.addEventListener('click', closeNav);
+scrim.addEventListener('click', closeNav);
+
+render();
+</script>
+</body>
+</html>

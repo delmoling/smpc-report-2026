@@ -3,3 +3,5 @@ arquivo/
 *.heic
 node_modules/
 .DS_Store
+
+output/images/joseph_20260722_133341.mp4
